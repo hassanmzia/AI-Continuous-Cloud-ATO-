@@ -6,11 +6,13 @@ import EvidenceExplorer from './pages/EvidenceExplorer';
 import DriftTimeline from './pages/DriftTimeline';
 import Approvals from './pages/Approvals';
 import Reports from './pages/Reports';
+import CloudAccounts from './pages/CloudAccounts';
 
 const queryClient = new QueryClient();
 
 const navItems = [
   { path: '/', label: 'Dashboard' },
+  { path: '/cloud-accounts', label: 'Cloud Accounts' },
   { path: '/controls', label: 'Controls' },
   { path: '/evidence', label: 'Evidence' },
   { path: '/drift', label: 'Drift' },
@@ -61,6 +63,7 @@ export default function App() {
           <main style={{ flex: 1, background: '#f6f8fa', padding: 24 }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/cloud-accounts" element={<CloudAccounts />} />
               <Route path="/controls" element={<ControlCockpit />} />
               <Route path="/evidence" element={<EvidenceExplorer />} />
               <Route path="/drift" element={<DriftTimeline />} />
