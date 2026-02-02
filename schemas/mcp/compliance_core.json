@@ -1,0 +1,426 @@
+{
+  "toolset": "compliance_core",
+  "version": "1.0.0",
+  "description": "Canonical MCP compliance tools — multi-cloud, ATO-grade. One interface, multiple provider implementations.",
+  "design_principles": [
+    "Every tool returns structured JSON with: provider, system_id, scope, time_range, evidence_artifact_id, hash, timestamp, raw_refs",
+    "MCP router enforces: allowlisted APIs, least-privilege credentials, per-tenant policy, approval gates",
+    "Gov variants (aws_gov, azure_gov, gcp_gov) differ in identity/partition/endpoints, not abstract operations"
+  ],
+  "tools": [
+    {
+      "name": "get_asset_inventory",
+      "description": "Enumerate assets within ATO boundary; returns normalized asset inventory across any supported cloud provider.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "aws_gov", "azure", "azure_gov", "gcp", "gcp_gov"]
+          },
+          "system_id": {
+            "type": "string",
+            "description": "Unique identifier for the system under ATO boundary."
+          },
+          "scope": {
+            "type": "object",
+            "description": "Boundary scoping: accounts/subscriptions/projects, regions, tags, resource groups.",
+            "properties": {
+              "accounts": { "type": "array", "items": { "type": "string" } },
+              "regions": { "type": "array", "items": { "type": "string" } },
+              "tags": { "type": "object", "additionalProperties": { "type": "string" } },
+              "resource_groups": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "as_of": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "required": ["provider", "system_id", "scope"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string" },
+          "system_id": { "type": "string" },
+          "assets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "asset_id": { "type": "string" },
+                "resource_type": { "type": "string" },
+                "name": { "type": "string" },
+                "region": { "type": "string" },
+                "tags": { "type": "object" },
+                "provider_native_id": { "type": "string" },
+                "status": { "type": "string" }
+              }
+            }
+          },
+          "collected_at": { "type": "string", "format": "date-time" },
+          "evidence_artifact_id": { "type": "string" },
+          "hash": { "type": "string" }
+        },
+        "required": ["provider", "system_id", "assets", "collected_at"]
+      }
+    },
+    {
+      "name": "get_config_snapshot",
+      "description": "Fetch current configuration state for a resource class; normalize results for compliance evaluation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "aws_gov", "azure", "azure_gov", "gcp", "gcp_gov"]
+          },
+          "system_id": { "type": "string" },
+          "resource_type": {
+            "type": "string",
+            "description": "Resource class: iam, storage, network, compute, kubernetes, database, encryption, logging"
+          },
+          "scope": { "type": "object" },
+          "include_history": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, include recent config change history for drift analysis."
+          }
+        },
+        "required": ["provider", "system_id", "resource_type", "scope"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string" },
+          "system_id": { "type": "string" },
+          "resource_type": { "type": "string" },
+          "resources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "resource_id": { "type": "string" },
+                "config": { "type": "object" },
+                "last_modified": { "type": "string", "format": "date-time" },
+                "compliant_fields": { "type": "object" },
+                "provider_native_id": { "type": "string" }
+              }
+            }
+          },
+          "collected_at": { "type": "string", "format": "date-time" },
+          "evidence_artifact_id": { "type": "string" },
+          "hash": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "query_audit_logs",
+      "description": "Query cloud audit logs for events relevant to controls (who/what/when). Provider-specific query translated by implementation.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "aws_gov", "azure", "azure_gov", "gcp", "gcp_gov"]
+          },
+          "system_id": { "type": "string" },
+          "query": {
+            "type": "object",
+            "description": "Filter criteria: event_types, actors, resources, actions, severity.",
+            "properties": {
+              "event_types": { "type": "array", "items": { "type": "string" } },
+              "actors": { "type": "array", "items": { "type": "string" } },
+              "resources": { "type": "array", "items": { "type": "string" } },
+              "actions": { "type": "array", "items": { "type": "string" } },
+              "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] }
+            }
+          },
+          "time_range": {
+            "type": "object",
+            "properties": {
+              "start": { "type": "string", "format": "date-time" },
+              "end": { "type": "string", "format": "date-time" }
+            },
+            "required": ["start", "end"]
+          },
+          "max_results": { "type": "integer", "default": 1000 }
+        },
+        "required": ["provider", "system_id", "query", "time_range"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string" },
+          "system_id": { "type": "string" },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": { "type": "string" },
+                "timestamp": { "type": "string", "format": "date-time" },
+                "actor": { "type": "string" },
+                "action": { "type": "string" },
+                "resource": { "type": "string" },
+                "result": { "type": "string" },
+                "source_ip": { "type": "string" },
+                "raw_event": { "type": "object" }
+              }
+            }
+          },
+          "total_count": { "type": "integer" },
+          "truncated": { "type": "boolean" },
+          "evidence_artifact_id": { "type": "string" },
+          "hash": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "evaluate_control_rule",
+      "description": "Evaluate a normalized control rule against gathered config/log evidence. Returns pass/fail with rationale and evidence pointers.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "framework": {
+            "type": "string",
+            "enum": ["fedramp", "nist_800_53_r5", "rmf", "stig"]
+          },
+          "control_id": { "type": "string" },
+          "system_id": { "type": "string" },
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "aws_gov", "azure", "azure_gov", "gcp", "gcp_gov"]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Artifact IDs from evidence vault."
+          },
+          "evaluation_mode": {
+            "type": "string",
+            "enum": ["automated", "hybrid", "manual_review"],
+            "default": "automated"
+          }
+        },
+        "required": ["framework", "control_id", "system_id", "provider", "evidence_refs"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "control_id": { "type": "string" },
+          "framework": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "partial", "not_applicable", "manual_review_required"]
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "rationale": { "type": "string" },
+          "evidence_citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_id": { "type": "string" },
+                "relevant_excerpt": { "type": "string" },
+                "supports_or_contradicts": { "type": "string", "enum": ["supports", "contradicts", "neutral"] }
+              }
+            }
+          },
+          "evaluated_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    {
+      "name": "store_evidence_artifact",
+      "description": "Store an evidence artifact in the vault with hash, timestamps, tags, and access controls; returns artifact_id.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system_id": { "type": "string" },
+          "artifact_type": {
+            "type": "string",
+            "description": "e.g., config_snapshot, log_export, scan_report, policy_doc, screenshot, ckl, scap_result"
+          },
+          "content_uri": {
+            "type": "string",
+            "description": "Pointer to object storage upload or presigned URL; MCP server performs hashing."
+          },
+          "tags": {
+            "type": "object",
+            "description": "Metadata tags: control_ids, framework, env, provider, date_range, classification.",
+            "properties": {
+              "control_ids": { "type": "array", "items": { "type": "string" } },
+              "framework": { "type": "string" },
+              "environment": { "type": "string" },
+              "provider": { "type": "string" },
+              "date_range_start": { "type": "string", "format": "date-time" },
+              "date_range_end": { "type": "string", "format": "date-time" },
+              "classification": { "type": "string", "enum": ["unclassified", "cui", "secret"] }
+            }
+          },
+          "retention_policy": {
+            "type": "string",
+            "enum": ["standard", "worm_1yr", "worm_3yr", "worm_7yr"],
+            "default": "standard"
+          }
+        },
+        "required": ["system_id", "artifact_type", "content_uri", "tags"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact_id": { "type": "string" },
+          "hash_sha256": { "type": "string" },
+          "stored_at": { "type": "string", "format": "date-time" },
+          "storage_uri": { "type": "string" },
+          "retention_policy": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "create_poam_item",
+      "description": "Create POA&M entry for a failed/at-risk control with milestones and owners.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system_id": { "type": "string" },
+          "framework": {
+            "type": "string",
+            "enum": ["fedramp", "nist_800_53_r5", "rmf", "stig"]
+          },
+          "control_id": { "type": "string" },
+          "weakness": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "moderate", "high", "critical"]
+          },
+          "milestones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": { "type": "string" },
+                "target_date": { "type": "string", "format": "date" },
+                "status": { "type": "string", "enum": ["pending", "in_progress", "completed"] }
+              },
+              "required": ["description", "target_date"]
+            }
+          },
+          "owner": { "type": "string" },
+          "due_date": { "type": "string", "format": "date" },
+          "evidence_artifact_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "risk_acceptance": {
+            "type": "object",
+            "properties": {
+              "accepted": { "type": "boolean" },
+              "accepted_by": { "type": "string" },
+              "justification": { "type": "string" }
+            }
+          }
+        },
+        "required": ["system_id", "framework", "control_id", "weakness", "severity", "milestones", "owner", "due_date"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "poam_id": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "create_ticket",
+      "description": "Create remediation ticket in external ticketing system (Jira/ServiceNow/GitHub Issues).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string",
+            "enum": ["jira", "servicenow", "github"]
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "assignee": { "type": "string" },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "links": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Links to POA&M items, evidence artifacts, or control IDs."
+          },
+          "due_date": { "type": "string", "format": "date" }
+        },
+        "required": ["system", "title", "description"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": { "type": "string" },
+          "ticket_url": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    {
+      "name": "detect_drift",
+      "description": "Compare current config snapshot against last attested baseline; return drift events with attribution.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["aws", "aws_gov", "azure", "azure_gov", "gcp", "gcp_gov"]
+          },
+          "system_id": { "type": "string" },
+          "resource_type": { "type": "string" },
+          "baseline_artifact_id": {
+            "type": "string",
+            "description": "Artifact ID of the last attested baseline snapshot."
+          },
+          "current_artifact_id": {
+            "type": "string",
+            "description": "Artifact ID of the current snapshot to compare."
+          }
+        },
+        "required": ["provider", "system_id", "resource_type", "baseline_artifact_id", "current_artifact_id"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "drift_detected": { "type": "boolean" },
+          "drift_events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "resource_id": { "type": "string" },
+                "field": { "type": "string" },
+                "baseline_value": {},
+                "current_value": {},
+                "changed_by": { "type": "string" },
+                "changed_at": { "type": "string", "format": "date-time" },
+                "severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
+                "affected_controls": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "analyzed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  ]
+}

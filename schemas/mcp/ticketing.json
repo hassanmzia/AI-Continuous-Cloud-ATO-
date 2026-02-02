@@ -1,0 +1,101 @@
+{
+  "toolset": "ticketing",
+  "version": "1.0.0",
+  "description": "MCP tools for external ticketing system integration (Jira, ServiceNow, GitHub Issues).",
+  "tools": [
+    {
+      "name": "create_ticket",
+      "description": "Create a remediation or tracking ticket in external ticketing system.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system": { "type": "string", "enum": ["jira", "servicenow", "github"] },
+          "project_key": { "type": "string", "description": "Project/board key in the ticketing system." },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "assignee": { "type": "string" },
+          "labels": { "type": "array", "items": { "type": "string" } },
+          "links": { "type": "array", "items": { "type": "string" } },
+          "due_date": { "type": "string", "format": "date" },
+          "custom_fields": { "type": "object" }
+        },
+        "required": ["system", "title", "description"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": { "type": "string" },
+          "ticket_url": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "update_ticket",
+      "description": "Update an existing ticket with new status, comments, or fields.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system": { "type": "string", "enum": ["jira", "servicenow", "github"] },
+          "ticket_id": { "type": "string" },
+          "status": { "type": "string" },
+          "comment": { "type": "string" },
+          "fields": { "type": "object" }
+        },
+        "required": ["system", "ticket_id"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": { "type": "string" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "query_tickets",
+      "description": "Query tickets by filters (control_id, status, assignee, etc.).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system": { "type": "string", "enum": ["jira", "servicenow", "github"] },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "labels": { "type": "array", "items": { "type": "string" } },
+              "status": { "type": "string" },
+              "assignee": { "type": "string" },
+              "created_after": { "type": "string", "format": "date-time" },
+              "custom_query": { "type": "string" }
+            }
+          },
+          "max_results": { "type": "integer", "default": 50 }
+        },
+        "required": ["system", "filters"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "tickets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ticket_id": { "type": "string" },
+                "title": { "type": "string" },
+                "status": { "type": "string" },
+                "assignee": { "type": "string" },
+                "created_at": { "type": "string", "format": "date-time" },
+                "url": { "type": "string" }
+              }
+            }
+          },
+          "total_count": { "type": "integer" }
+        }
+      }
+    }
+  ]
+}
