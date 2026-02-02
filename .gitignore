@@ -43,5 +43,7 @@ Thumbs.db
 # Credentials (never commit)
 credentials.json
 service-account.json
+*-sa-key.json
 *.pem
 *.key
+secrets/
