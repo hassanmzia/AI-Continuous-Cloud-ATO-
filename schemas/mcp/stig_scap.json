@@ -1,0 +1,224 @@
+{
+  "toolset": "stig_scap",
+  "version": "1.0.0",
+  "description": "STIG/SCAP MCP tools — CKL ingestion, SCAP scanning, STIG-to-NIST crosswalk. Critical for DoD ATO.",
+  "tools": [
+    {
+      "name": "ingest_ckl",
+      "description": "Ingest a STIG Checklist (CKL) file and normalize findings by STIG ID, rule ID, severity, status.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system_id": { "type": "string" },
+          "asset_id": {
+            "type": "string",
+            "description": "Unique ID of the host/application being assessed."
+          },
+          "ckl_uri": {
+            "type": "string",
+            "description": "URI to the CKL file in evidence vault or upload path."
+          },
+          "environment": {
+            "type": "string",
+            "enum": ["dev", "staging", "production", "dr"]
+          },
+          "stig_name": {
+            "type": "string",
+            "description": "e.g., 'Windows Server 2022 STIG', 'RHEL 9 STIG', 'Apache 2.4 STIG'"
+          },
+          "stig_version": { "type": "string" }
+        },
+        "required": ["system_id", "asset_id", "ckl_uri"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ingest_id": { "type": "string" },
+          "system_id": { "type": "string" },
+          "asset_id": { "type": "string" },
+          "stig_name": { "type": "string" },
+          "stig_version": { "type": "string" },
+          "total_checks": { "type": "integer" },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "not_a_finding": { "type": "integer" },
+              "open": { "type": "integer" },
+              "not_applicable": { "type": "integer" },
+              "not_reviewed": { "type": "integer" }
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vuln_id": { "type": "string" },
+                "rule_id": { "type": "string" },
+                "stig_id": { "type": "string" },
+                "severity": { "type": "string", "enum": ["CAT_I", "CAT_II", "CAT_III"] },
+                "status": { "type": "string", "enum": ["Not_A_Finding", "Open", "Not_Applicable", "Not_Reviewed"] },
+                "finding_details": { "type": "string" },
+                "comments": { "type": "string" }
+              }
+            }
+          },
+          "evidence_artifact_id": { "type": "string" },
+          "ingested_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    {
+      "name": "run_scap_scan",
+      "description": "Trigger SCAP/OpenSCAP scan on a target asset (where permitted) and return results summary + artifact reference.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "system_id": { "type": "string" },
+          "asset_id": { "type": "string" },
+          "profile": {
+            "type": "string",
+            "description": "STIG profile name, e.g., 'xccdf_mil.disa.stig_profile_MAC-1_Classified'"
+          },
+          "scan_scope": {
+            "type": "object",
+            "properties": {
+              "target_host": { "type": "string" },
+              "credential_ref": { "type": "string", "description": "Reference to stored scan credentials (never inline)." },
+              "benchmark": { "type": "string" },
+              "tailoring_file": { "type": "string" }
+            }
+          },
+          "output_formats": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["xccdf", "arf", "html", "json"] },
+            "default": ["xccdf", "json"]
+          }
+        },
+        "required": ["system_id", "asset_id", "profile"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "scan_id": { "type": "string" },
+          "system_id": { "type": "string" },
+          "asset_id": { "type": "string" },
+          "profile": { "type": "string" },
+          "scan_status": { "type": "string", "enum": ["completed", "failed", "partial"] },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "pass": { "type": "integer" },
+              "fail": { "type": "integer" },
+              "error": { "type": "integer" },
+              "not_applicable": { "type": "integer" },
+              "not_checked": { "type": "integer" },
+              "score": { "type": "number" }
+            }
+          },
+          "result_artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "format": { "type": "string" },
+                "artifact_id": { "type": "string" }
+              }
+            }
+          },
+          "scanned_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    {
+      "name": "map_stig_to_nist_controls",
+      "description": "Return crosswalk mappings from STIG findings to NIST 800-53/FedRAMP/RMF controls.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "stig_rule_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of STIG Rule IDs (SV-xxxxx) to map."
+          },
+          "framework": {
+            "type": "string",
+            "enum": ["nist_800_53_r5", "fedramp", "rmf"]
+          },
+          "include_cci": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include CCI (Control Correlation Identifier) in mapping chain."
+          }
+        },
+        "required": ["stig_rule_ids", "framework"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "mappings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stig_rule_id": { "type": "string" },
+                "cci_ids": { "type": "array", "items": { "type": "string" } },
+                "nist_controls": { "type": "array", "items": { "type": "string" } },
+                "framework_controls": { "type": "array", "items": { "type": "string" } },
+                "srg_id": { "type": "string" }
+              }
+            }
+          },
+          "unmapped_rules": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "name": "get_stig_benchmark_info",
+      "description": "Retrieve metadata and check content for a specific STIG benchmark.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "stig_name": { "type": "string" },
+          "version": { "type": "string" },
+          "severity_filter": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["CAT_I", "CAT_II", "CAT_III"] }
+          }
+        },
+        "required": ["stig_name"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "stig_name": { "type": "string" },
+          "version": { "type": "string" },
+          "release_date": { "type": "string", "format": "date" },
+          "total_checks": { "type": "integer" },
+          "checks_by_severity": {
+            "type": "object",
+            "properties": {
+              "CAT_I": { "type": "integer" },
+              "CAT_II": { "type": "integer" },
+              "CAT_III": { "type": "integer" }
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vuln_id": { "type": "string" },
+                "rule_id": { "type": "string" },
+                "severity": { "type": "string" },
+                "title": { "type": "string" },
+                "check_content": { "type": "string" },
+                "fix_text": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

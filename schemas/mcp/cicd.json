@@ -1,0 +1,116 @@
+{
+  "toolset": "cicd",
+  "version": "1.0.0",
+  "description": "MCP tools for CI/CD and Infrastructure-as-Code integration — gated PR creation, Terraform plan validation, policy checks.",
+  "tools": [
+    {
+      "name": "create_remediation_pr",
+      "description": "Create a pull request with IaC remediation changes. NEVER auto-merges; always requires human approval.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "repo": { "type": "string", "description": "Repository identifier (org/repo)." },
+          "branch_name": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file_path": { "type": "string" },
+                "content": { "type": "string" },
+                "change_type": { "type": "string", "enum": ["create", "modify", "delete"] }
+              },
+              "required": ["file_path", "content", "change_type"]
+            }
+          },
+          "linked_controls": { "type": "array", "items": { "type": "string" } },
+          "linked_poam_ids": { "type": "array", "items": { "type": "string" } },
+          "reviewers": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["repo", "branch_name", "title", "description", "changes"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "pr_id": { "type": "string" },
+          "pr_url": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "run_terraform_plan",
+      "description": "Execute terraform plan and return the planned changes for compliance review.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string" },
+          "directory": { "type": "string" },
+          "var_file": { "type": "string" },
+          "target_resources": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["workspace", "directory"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "plan_id": { "type": "string" },
+          "changes_summary": {
+            "type": "object",
+            "properties": {
+              "add": { "type": "integer" },
+              "change": { "type": "integer" },
+              "destroy": { "type": "integer" }
+            }
+          },
+          "resource_changes": { "type": "array", "items": { "type": "object" } },
+          "plan_artifact_id": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "run_policy_check",
+      "description": "Run OPA/Sentinel/Checkov policy checks against IaC configuration.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "tool": { "type": "string", "enum": ["opa", "sentinel", "checkov", "tfsec"] },
+          "target": { "type": "string", "description": "Path or plan file to check." },
+          "policy_set": { "type": "string", "description": "Policy bundle/ruleset name." },
+          "framework_filter": {
+            "type": "string",
+            "enum": ["fedramp", "nist_800_53", "cis", "stig"],
+            "description": "Only run checks mapped to this framework."
+          }
+        },
+        "required": ["tool", "target"]
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "check_id": { "type": "string" },
+          "tool": { "type": "string" },
+          "passed": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "skipped": { "type": "integer" },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rule_id": { "type": "string" },
+                "severity": { "type": "string" },
+                "resource": { "type": "string" },
+                "description": { "type": "string" },
+                "mapped_controls": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

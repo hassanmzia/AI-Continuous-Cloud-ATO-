@@ -1,0 +1,232 @@
+{
+  "protocol": "a2a",
+  "version": "1.0.0",
+  "description": "Agent-to-Agent (A2A) message contracts for the multi-agent compliance mesh. Each agent can be independently deployed and communicates via structured task messages.",
+  "message_types": {
+    "TaskRequest": {
+      "description": "Sent by orchestrator or peer agent to request work.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string", "format": "uuid" },
+          "run_id": { "type": "string", "format": "uuid" },
+          "from_agent": { "type": "string" },
+          "to_agent": { "type": "string" },
+          "task_type": {
+            "type": "string",
+            "enum": [
+              "control_mapping",
+              "evidence_planning",
+              "evidence_collection",
+              "drift_detection",
+              "stig_assessment",
+              "gap_analysis",
+              "remediation",
+              "reporting",
+              "committee_review"
+            ]
+          },
+          "payload": { "type": "object", "description": "Task-specific input data." },
+          "context": {
+            "type": "object",
+            "properties": {
+              "system_id": { "type": "string" },
+              "providers": { "type": "array", "items": { "type": "string" } },
+              "frameworks": { "type": "array", "items": { "type": "string" } },
+              "baseline": { "type": "string" }
+            }
+          },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"] },
+          "deadline": { "type": "string", "format": "date-time" },
+          "correlation_id": { "type": "string", "description": "For tracing across agent calls." }
+        },
+        "required": ["task_id", "run_id", "from_agent", "to_agent", "task_type", "payload"]
+      }
+    },
+    "TaskResponse": {
+      "description": "Returned by agent after completing (or failing) a task.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string", "format": "uuid" },
+          "run_id": { "type": "string", "format": "uuid" },
+          "from_agent": { "type": "string" },
+          "to_agent": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["completed", "failed", "partial", "requires_approval", "delegated"]
+          },
+          "result": { "type": "object", "description": "Task-specific output data." },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_id": { "type": "string" },
+                "artifact_type": { "type": "string" },
+                "hash": { "type": "string" }
+              }
+            },
+            "description": "Evidence artifacts produced during the task."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": { "type": "string" },
+                "message": { "type": "string" },
+                "retryable": { "type": "boolean" }
+              }
+            }
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "started_at": { "type": "string", "format": "date-time" },
+              "completed_at": { "type": "string", "format": "date-time" },
+              "tool_calls": { "type": "integer" },
+              "tokens_used": { "type": "integer" }
+            }
+          },
+          "audit_trail": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": { "type": "string", "format": "date-time" },
+                "action": { "type": "string" },
+                "detail": { "type": "string" }
+              }
+            },
+            "description": "Immutable log of agent actions for compliance audit."
+          },
+          "correlation_id": { "type": "string" }
+        },
+        "required": ["task_id", "run_id", "from_agent", "to_agent", "status", "result"]
+      }
+    },
+    "CommitteeReviewRequest": {
+      "description": "Specialized message for dual-agent independent assessment of high-risk controls. Two agents assess independently, then results are reconciled.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "review_id": { "type": "string", "format": "uuid" },
+          "run_id": { "type": "string", "format": "uuid" },
+          "control_ids": { "type": "array", "items": { "type": "string" } },
+          "evidence_refs": { "type": "array", "items": { "type": "string" } },
+          "assessor_agents": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 2,
+            "description": "At least two agents must independently assess."
+          },
+          "reconciliation_strategy": {
+            "type": "string",
+            "enum": ["strict_consensus", "majority_vote", "escalate_on_disagreement"],
+            "default": "escalate_on_disagreement"
+          }
+        },
+        "required": ["review_id", "run_id", "control_ids", "evidence_refs", "assessor_agents"]
+      }
+    },
+    "CommitteeReviewResponse": {
+      "description": "Result of a committee review with individual assessments and reconciled outcome.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "review_id": { "type": "string", "format": "uuid" },
+          "individual_assessments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "agent_id": { "type": "string" },
+                "control_id": { "type": "string" },
+                "status": { "type": "string" },
+                "confidence": { "type": "number" },
+                "rationale": { "type": "string" }
+              }
+            }
+          },
+          "reconciled_outcome": {
+            "type": "object",
+            "properties": {
+              "control_id": { "type": "string" },
+              "final_status": { "type": "string" },
+              "agreement_level": { "type": "string", "enum": ["full_agreement", "partial_agreement", "disagreement"] },
+              "escalated": { "type": "boolean" },
+              "reconciliation_notes": { "type": "string" }
+            }
+          }
+        },
+        "required": ["review_id", "individual_assessments", "reconciled_outcome"]
+      }
+    },
+    "AgentHeartbeat": {
+      "description": "Periodic health check from agent to orchestrator.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": "string" },
+          "agent_type": { "type": "string" },
+          "status": { "type": "string", "enum": ["idle", "busy", "degraded", "offline"] },
+          "current_task_id": { "type": "string" },
+          "capabilities": { "type": "array", "items": { "type": "string" } },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["agent_id", "agent_type", "status", "timestamp"]
+      }
+    }
+  },
+  "agent_registry": {
+    "description": "Known agent types in the compliance mesh.",
+    "agents": [
+      {
+        "id": "scope_resolver",
+        "description": "Resolves system boundary, cloud providers, baseline, environment. Enforces RBAC.",
+        "capabilities": ["scope_resolution", "rbac_enforcement"]
+      },
+      {
+        "id": "control_mapping_agent",
+        "description": "RAG-powered agent mapping controls across frameworks (NIST/FedRAMP/RMF/STIG).",
+        "capabilities": ["control_mapping", "framework_crosswalk", "rag_retrieval"]
+      },
+      {
+        "id": "evidence_planner_agent",
+        "description": "Agentic RAG agent that plans evidence collection strategy per control.",
+        "capabilities": ["evidence_planning", "tool_selection", "freshness_evaluation"]
+      },
+      {
+        "id": "evidence_collector_agent",
+        "description": "MCP-driven agent collecting evidence across multi-cloud providers.",
+        "capabilities": ["evidence_collection", "mcp_tool_execution", "artifact_storage"]
+      },
+      {
+        "id": "drift_detection_agent",
+        "description": "Detects config/identity/network drift by comparing snapshots to baselines.",
+        "capabilities": ["drift_detection", "change_attribution", "baseline_comparison"]
+      },
+      {
+        "id": "stig_posture_agent",
+        "description": "STIG/SCAP assessment agent — CKL ingestion, scan execution, NIST mapping.",
+        "capabilities": ["stig_assessment", "scap_scanning", "ckl_ingestion", "stig_nist_crosswalk"]
+      },
+      {
+        "id": "gap_analysis_agent",
+        "description": "Advanced Agentic RAG agent — multi-hop retrieval, contradiction detection, sufficiency scoring.",
+        "capabilities": ["gap_analysis", "contradiction_detection", "sufficiency_scoring", "advanced_rag"]
+      },
+      {
+        "id": "remediation_agent",
+        "description": "Creates POA&M items, remediation tickets, and optional IaC PRs.",
+        "capabilities": ["poam_creation", "ticket_creation", "pr_creation", "remediation_planning"]
+      },
+      {
+        "id": "reporting_agent",
+        "description": "RAG-powered report generation — SSP deltas, SAP/SAR, ConMon summaries.",
+        "capabilities": ["report_generation", "ssp_delta", "conmon_summary", "executive_dashboard"]
+      }
+    ]
+  }
+}

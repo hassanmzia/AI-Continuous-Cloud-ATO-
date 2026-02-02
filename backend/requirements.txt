@@ -1,0 +1,55 @@
+# Django & API
+Django>=5.1,<5.2
+djangorestframework>=3.15,<4.0
+django-cors-headers>=4.3,<5.0
+django-filter>=24.0
+drf-spectacular>=0.27       # OpenAPI schema generation
+gunicorn>=22.0
+
+# Database
+psycopg2-binary>=2.9,<3.0
+pgvector>=0.3               # pgvector Python bindings
+
+# LangChain / LangGraph (orchestration)
+langgraph>=0.2
+langchain>=0.3
+langchain-openai>=0.2
+langchain-anthropic>=0.2
+langchain-community>=0.3
+
+# RAG & Embeddings
+langchain-chroma>=0.1
+chromadb>=0.5
+sentence-transformers>=3.0  # local embeddings (optional)
+tiktoken>=0.7               # tokenizer for chunking
+
+# MCP (Model Context Protocol)
+mcp>=1.0                    # MCP SDK
+
+# Cloud SDKs (multi-cloud)
+boto3>=1.34                 # AWS + AWS Gov
+azure-identity>=1.16
+azure-mgmt-resource>=23.0
+azure-mgmt-security>=6.0
+google-cloud-asset>=3.26
+google-cloud-securitycenter>=1.28
+google-cloud-logging>=3.10
+
+# Evidence & Hashing
+minio>=7.2                  # MinIO/S3-compatible object storage
+hashlib-additional>=1.0
+
+# STIG/SCAP
+lxml>=5.0                   # CKL XML parsing
+defusedxml>=0.7             # safe XML parsing
+
+# Async & Task Queue
+celery[redis]>=5.4
+redis>=5.0
+
+# Utilities
+python-dotenv>=1.0
+pydantic>=2.7
+httpx>=0.27
+structlog>=24.0             # structured logging
+cryptography>=42.0          # mTLS, signing

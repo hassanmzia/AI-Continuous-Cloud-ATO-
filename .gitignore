@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.egg
+.venv/
+venv/
+env/
+
+# Django
+*.sqlite3
+db.sqlite3
+staticfiles/
+media/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Chroma
+chroma_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials (never commit)
+credentials.json
+service-account.json
+*.pem
+*.key
