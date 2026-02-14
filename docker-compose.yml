@@ -64,6 +64,7 @@ services:
              python manage.py runserver 0.0.0.0:8000"
     environment:
       DEBUG: "true"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0,108.48.39.238,backend"
       DB_HOST: postgres
       DB_NAME: ato_db
       DB_USER: ato_user
@@ -73,8 +74,8 @@ services:
       EVIDENCE_VAULT_ENDPOINT: http://minio:9000
       EVIDENCE_VAULT_ACCESS_KEY: minioadmin
       EVIDENCE_VAULT_SECRET_KEY: minioadmin
-    ports:
-      - "18000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -116,14 +117,28 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "13000:3000"
+    expose:
+      - "3000"
     environment:
-      VITE_API_URL: http://localhost:18000/api
+      VITE_API_URL: /api
     depends_on:
       - backend
     volumes:
       - ./frontend/src:/app/src
+
+  # ---------------------------------------------------------------------------
+  # Nginx reverse proxy
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "13000:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
 
 volumes:
   pgdata:
