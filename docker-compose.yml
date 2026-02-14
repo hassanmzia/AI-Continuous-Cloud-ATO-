@@ -121,6 +121,11 @@ services:
       - "3000"
     environment:
       VITE_API_URL: /api
+      CHOKIDAR_USEPOLLING: "true"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       - backend
     volumes:
