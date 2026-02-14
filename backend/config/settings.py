@@ -105,9 +105,14 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ---------------------------------------------------------------------------
-# CORS (dev — restrict in production)
+# CORS
 # ---------------------------------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+if not DEBUG:
+    CORS_ALLOWED_ORIGINS = os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://108.48.39.238:13000,http://localhost:13000",
+    ).split(",")
 
 # ---------------------------------------------------------------------------
 # Celery (async task queue)
